@@ -102,6 +102,7 @@ with col1:
     st.write("Combined Errors")
     st.table(today['error_combined'].value_counts())
 with col2:
+    st.write("Metrics")
     st.metric(label="Success", value=today[today['status'].notna()].shape[0])
     st.metric(label="Failed", value=today[today['error'].isna() & today['service_error'].isna() & today['status'].isna()].shape[0])
 
@@ -112,7 +113,7 @@ plot_data = today.groupby(['Date', 'error_combined']).size().unstack(fill_value=
 # line plot
 fig = px.line(plot_data, x=plot_data.index, y=plot_data.columns, color='error_combined')
 #fig.update_layout(showlegend=False)
-fig.update_layout(legend=dict(
+fig.update_layout(height=800,legend=dict(
     orientation="h",
 ))
 st.plotly_chart(fig,use_container_width=True)
