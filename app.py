@@ -111,7 +111,7 @@ plot_data = today.groupby(['Date', 'error_combined']).size().unstack(fill_value=
 # bar plot
 # fig = px.bar(plot_data, x=plot_data.index, y=plot_data.columns, color='error_combined', barmode='group')
 # line plot
-fig = px.line(plot_data, x=plot_data.index, y=plot_data.columns, color='error_combined')
+fig = px.line(plot_data, x=plot_data.index, y=plot_data.columns, color='error_combined', title="Error Distribution")
 #fig.update_layout(showlegend=False)
 fig.update_layout(height=800,legend=dict(
     orientation="h",
