@@ -53,18 +53,24 @@ df = df.sort_values(by=['created_at'], ascending=False)
 # st.write(service_error)
 # %%
 df["error1"] = df["error"].combine_first(df["service_error"])
-# %%
 df['error_combined'] = np.where(df['error1'].str.contains('arrow-left', na=False), 'arrow-left', df['error1'])
 df['error_combined'] = np.where(df['error1'].str.contains('timeout', na=False), 'sms timeout', df['error_combined'])
 df['error_combined'] = np.where(df['error1'].str.contains('Rahmenvertragskunden', na=False), 'Rahmenvertragskunden', df['error_combined'])
 df['error_combined'] = np.where(df['error1'].str.contains('Kennwort ', na=False), 'Kennwort ', df['error_combined'])
 df['error_combined'] = np.where(df['error1'].str.contains('Der Kontostatus des Kunden ist nicht in Ordnung', na=False), 'Kontostatus nicht in Ordnung', df['error_combined'])
-st.write("Combined Errors")
+df['status'] = df['status'].replace('', np.NaN)
 dates = df.created_at.dt.date.unique()
 filter_date = st.selectbox("Select Date", dates)
 mask = (df['created_at'].dt.date == filter_date)
 today = df[mask]
-st.write(today['error_combined'].value_counts())
+col1, col2 = st.columns(2)
+with col1:
+    st.write("Combined Errors")
+    st.dataframe(today['error_combined'].value_counts())
+with col2:
+    st.metric(label="Success", value=today[today['status'].notna()].shape[0])
+    st.metric(label="Failed", value=today[today['error'].isna() & today['service_error'].isna() & today['status'].isna()].shape[0])
+
 # st.write("Errors")
 # st.write(df['error'].value_counts())
 # st.write("Service Errors")
