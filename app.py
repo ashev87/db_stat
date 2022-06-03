@@ -4,13 +4,16 @@ import streamlit as st
 import psycopg2
 import sys
 import numpy as np
+from datetime import datetime, timedelta
+import time
 # get version of library
 # print(psycopg2.__version__)
 # 2.9.3
 # %%
 # Initialize connection.
 # Uses st.experimental_singleton to only run once.
-#@st.experimental_singleton
+# @st.experimental_singleton
+@st.cache(allow_output_mutation=True)
 def connect(secrets):
     """ Connect to the PostgreSQL database server """
     conn = None
@@ -26,13 +29,29 @@ def connect(secrets):
 
 # %%
 # Perform query.
-# Uses st.experimental_memo to only rerun when the query changes or after 10 min.
-#@st.experimental_memo(ttl=60)
+# Uses st.experimental_memo to only rerun when the query changes or after 10 min. example for 10 min ttl=600
+# @st.experimental_memo(ttl=600)
+# def query_db(_conn, _query):
+    # cursor = conn.cursor()
+    # cursor.execute(query)
+    # rows_raw = cursor.fetchall()
+    # cursor.close()
+    # conn.close()
+    # Convert to list of dicts. Required for st.experimental_memo to hash the return value.
+    # rows = [dict(row) for row in rows_raw]
+    # return pd.DataFrame(rows)
+# cache for 10 minutes
+@st.cache(ttl=60*10, hash_funcs={psycopg2.extensions.connection: id})
+def load_from_db(query):
+    with st.spinner('Loading Data...'):
+        #time.sleep(0.5)
+        df = pd.read_sql_query(query, conn)
+    return df
 conn = connect(st.secrets["postgres"])
 query = """
         SELECT *
         FROM statistics.get_status_stat
-        WHERE created_at >= '2022-06-1 00:00:00';
+        WHERE created_at >= '2022-05-1 00:00:00';
         """
 query1 = """
         SELECT tablename, schemaname, tableowner
@@ -41,7 +60,7 @@ query1 = """
         AND schemaname != 'information_schema'
         ORDER BY tablename ASC;
         """
-df = pd.read_sql(query, conn)
+df = load_from_db(query)
 df = df.sort_values(by=['created_at'], ascending=False)
 # %%
 # st.write("Errors")
@@ -56,12 +75,21 @@ df["error1"] = df["error"].combine_first(df["service_error"])
 df['error_combined'] = np.where(df['error1'].str.contains('arrow-left', na=False), 'arrow-left', df['error1'])
 df['error_combined'] = np.where(df['error1'].str.contains('timeout', na=False), 'sms timeout', df['error_combined'])
 df['error_combined'] = np.where(df['error1'].str.contains('Rahmenvertragskunden', na=False), 'Rahmenvertragskunden', df['error_combined'])
-df['error_combined'] = np.where(df['error1'].str.contains('Kennwort ', na=False), 'Kennwort ', df['error_combined'])
+df['error_combined'] = np.where(df['error1'].str.contains('Kennwort', na=False), 'Kennwort', df['error_combined'])
+df['error_combined'] = np.where(df['error1'].str.contains("'ungewöhliches' Zeichen", na=False), "'ungewöhliches' Zeichen", df['error_combined'])
 df['error_combined'] = np.where(df['error1'].str.contains('Der Kontostatus des Kunden ist nicht in Ordnung', na=False), 'Kontostatus nicht in Ordnung', df['error_combined'])
 df['status'] = df['status'].replace('', np.NaN)
 dates = df.created_at.dt.date.unique()
-filter_date = st.selectbox("Select Date", dates)
-mask = (df['created_at'].dt.date == filter_date)
+max_date = dates.max()
+try:
+    min_date = max_date - timedelta(days=7)
+except:
+    min_date = dates.min()
+a_date = st.date_input("Pick a date", (min_date, max_date))
+st.write("The date selected:", a_date)
+# filter_date = st.selectbox("Select Date", dates)
+# mask = (df['created_at'].dt.date == filter_date)
+mask = (df['created_at'].dt.date >= a_date[0]) & (df['created_at'].dt.date <= a_date[1])
 today = df[mask]
 col1, col2 = st.columns(2)
 with col1:
