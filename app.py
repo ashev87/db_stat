@@ -6,6 +6,9 @@ import sys
 import numpy as np
 from datetime import datetime, timedelta
 import time
+import plotly.express as px
+
+st.set_page_config(layout="wide")
 # get version of library
 # print(psycopg2.__version__)
 # 2.9.3
@@ -44,7 +47,7 @@ def connect(secrets):
 @st.cache(ttl=60*10, hash_funcs={psycopg2.extensions.connection: id})
 def load_from_db(query):
     with st.spinner('Loading Data...'):
-        #time.sleep(0.5)
+        time.sleep(0.5)
         df = pd.read_sql_query(query, conn)
     return df
 conn = connect(st.secrets["postgres"])
@@ -76,15 +79,18 @@ df['error_combined'] = np.where(df['error1'].str.contains('arrow-left', na=False
 df['error_combined'] = np.where(df['error1'].str.contains('timeout', na=False), 'sms timeout', df['error_combined'])
 df['error_combined'] = np.where(df['error1'].str.contains('Rahmenvertragskunden', na=False), 'Rahmenvertragskunden', df['error_combined'])
 df['error_combined'] = np.where(df['error1'].str.contains('Kennwort', na=False), 'Kennwort', df['error_combined'])
-df['error_combined'] = np.where(df['error1'].str.contains("'ungewöhliches' Zeichen", na=False), "'ungewöhliches' Zeichen", df['error_combined'])
+df['error_combined'] = np.where(df['error1'].str.contains("Problem beim Speichern eines Auftrags", na=False), "Problem beim Speichern eines Auftrags", df['error_combined'])
 df['error_combined'] = np.where(df['error1'].str.contains('Der Kontostatus des Kunden ist nicht in Ordnung', na=False), 'Kontostatus nicht in Ordnung', df['error_combined'])
 df['status'] = df['status'].replace('', np.NaN)
+df['Date'] = df['created_at'].dt.date
 dates = df.created_at.dt.date.unique()
 max_date = dates.max()
 try:
     min_date = max_date - timedelta(days=7)
 except:
     min_date = dates.min()
+
+st.title("Status Statistic")
 a_date = st.date_input("Pick a date", (min_date, max_date))
 st.write("The date selected:", a_date)
 # filter_date = st.selectbox("Select Date", dates)
@@ -94,10 +100,23 @@ today = df[mask]
 col1, col2 = st.columns(2)
 with col1:
     st.write("Combined Errors")
-    st.dataframe(today['error_combined'].value_counts())
+    st.table(today['error_combined'].value_counts())
 with col2:
     st.metric(label="Success", value=today[today['status'].notna()].shape[0])
     st.metric(label="Failed", value=today[today['error'].isna() & today['service_error'].isna() & today['status'].isna()].shape[0])
+
+# %% plot a chart
+plot_data = today.groupby(['Date', 'error_combined']).size().unstack(fill_value=0)
+# bar plot
+# fig = px.bar(plot_data, x=plot_data.index, y=plot_data.columns, color='error_combined', barmode='group')
+# line plot
+fig = px.line(plot_data, x=plot_data.index, y=plot_data.columns, color='error_combined')
+#fig.update_layout(showlegend=False)
+fig.update_layout(legend=dict(
+    orientation="h",
+))
+st.plotly_chart(fig,use_container_width=True)
+# %%
 
 # st.write("Errors")
 # st.write(df['error'].value_counts())
