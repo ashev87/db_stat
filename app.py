@@ -1,4 +1,6 @@
 # %%
+import contextlib
+import time
 import pandas as pd
 import streamlit as st
 import psycopg2
@@ -30,6 +32,12 @@ def connect(secrets):
     print("Connection successful")
     return conn
 
+@contextlib.contextmanager
+def profile(name):
+    start_time = time.time()
+    yield  # <-- your code will execute here
+    total_time = time.time() - start_time
+    print("%s: %.4f ms" % (name, total_time * 1000.0))
 # %%
 # Perform query.
 # Uses st.experimental_memo to only rerun when the query changes or after 10 min. example for 10 min ttl=600
@@ -45,16 +53,18 @@ def connect(secrets):
     # return pd.DataFrame(rows)
 # cache for 10 minutes
 @st.cache(ttl=60*10, hash_funcs={psycopg2.extensions.connection: id})
-def load_from_db(query):
+def load_from_db(query, _conn):
     with st.spinner('Loading Data...'):
-        time.sleep(0.5)
+        #time.sleep(0.5)
         df = pd.read_sql_query(query, conn)
     return df
-conn = connect(st.secrets["postgres"])
+
+with profile("connect"):
+    conn = connect(st.secrets["postgres"])
 query = """
         SELECT *
         FROM statistics.get_status_stat
-        WHERE created_at >= '2022-01-1 00:00:00';
+        WHERE created_at >= '2022-04-1 00:00:00';
         """
 query1 = """
         SELECT tablename, schemaname, tableowner
@@ -63,7 +73,8 @@ query1 = """
         AND schemaname != 'information_schema'
         ORDER BY tablename ASC;
         """
-df = load_from_db(query)
+with profile("load_data"):
+    df = load_from_db(query, conn)
 df = df.sort_values(by=['created_at'], ascending=False)
 # %%
 # st.write("Errors")
