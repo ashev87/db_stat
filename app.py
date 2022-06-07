@@ -54,7 +54,7 @@ conn = connect(st.secrets["postgres"])
 query = """
         SELECT *
         FROM statistics.get_status_stat
-        WHERE created_at >= '2022-05-1 00:00:00';
+        WHERE created_at >= '2022-01-1 00:00:00';
         """
 query1 = """
         SELECT tablename, schemaname, tableowner
