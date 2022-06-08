@@ -53,7 +53,7 @@ def profile(name):
     # return pd.DataFrame(rows)
 # cache for 10 minutes
 @st.cache(ttl=60*10, hash_funcs={psycopg2.extensions.connection: id})
-def load_from_db(query, _conn):
+def load_from_db(query, conn):
     with st.spinner('Loading Data...'):
         #time.sleep(0.5)
         df = pd.read_sql_query(query, conn)
@@ -64,7 +64,7 @@ with profile("connect"):
 query = """
         SELECT *
         FROM statistics.get_status_stat
-        WHERE created_at >= '2022-04-1 00:00:00';
+        WHERE created_at >= '2022-05-1 00:00:00';
         """
 query1 = """
         SELECT tablename, schemaname, tableowner
